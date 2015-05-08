@@ -60,7 +60,7 @@ class FuzzPool:
                 raise IOError('Valid-case path "%s" is not a directory' % path)
             self.valid_cases[path] = []
             for filename in os.listdir(path):
-                filehandle = open(path + "/" + filename, "r")
+                filehandle = open(os.path.join(path, filename), "r")
                 self.valid_cases[path].append(filehandle.read())
             self.valid_cases_iter[path] = itertools.cycle(iter(self.valid_cases[path]))
             return self.valid_cases_iter[path].next()
@@ -85,7 +85,7 @@ class FuzzPool:
         # Run Radamsa
         try:
             subprocess.check_call(
-                [radamsacmd, "-o", fuzz_case_directory + "/%n.fuzz", "-n",
+                [radamsacmd, "-o", os.path.join(fuzz_case_directory, "%n.fuzz"), "-n",
                  str(no_of_fuzzcases), "-r", valid_case_directory])
         except subprocess.CalledProcessError as error:
             raise error
@@ -93,7 +93,7 @@ class FuzzPool:
         # Read the fuzz cases from the output directory and return as list
         fuzzlist = []
         for filename in os.listdir(fuzz_case_directory):
-            filehandle = open(fuzz_case_directory + "/" + filename, "r")
+            filehandle = open(os.path.join(fuzz_case_directory, filename), "r")
             fuzzlist.append(filehandle.read())
         shutil.rmtree(fuzz_case_directory)
         return fuzzlist
