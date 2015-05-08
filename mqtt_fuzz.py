@@ -83,8 +83,8 @@ class MQTTFuzzProtocol(Protocol):
             else:
                 print "%s:%s:Sending valid %s" % (calendar.timegm(time.gmtime()), self.session_id, pdutype)
                 data = self.fuzzdata.get_valid_case(os.path.join(self.validcases_path, pdutype))
-                print "%s:%s:Fuzzer -> Server: %s" % (calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data).rstrip())
-                self.transport.write(data)
+            print "%s:%s:Fuzzer -> Server: %s" % (calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data).rstrip())
+            self.transport.write(data)
         except (IOError, OSError) as err:
             print "Could not run the fuzzer. Check -validcases and -radamsa options. The error was: %s" % err
             reactor.stop()
