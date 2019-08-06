@@ -22,6 +22,7 @@ Performs MQTT sessions as a client with a fuzzed PDU once in a while.
 
 from __future__ import division
 from twisted.internet.protocol import Protocol, ClientFactory
+from twisted.internet.error import ReactorNotRunning
 import itertools
 import time
 import binascii
@@ -43,13 +44,13 @@ class MQTTFuzzProtocol(Protocol):
         :param data: Data received from remote peer
 
         """
-        print "%s:%s:Server -> Fuzzer: %s" % (calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data))
+        print("{}:{}:Server -> Fuzzer: {}".format(calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data)))
 
     def connectionMade(self):
         """Callback. We have connected to the MQTT server, so start banging away
 
         """
-        print "%s:%s:Connected to server" % (calendar.timegm(time.gmtime()), self.session_id)
+        print("{}:{}:Connected to server".format(calendar.timegm(time.gmtime()), self.session_id))
         self.send_next_pdu()
 
     def send_next_pdu(self):
@@ -59,12 +60,12 @@ class MQTTFuzzProtocol(Protocol):
         from twisted.internet import reactor
 
         try:
-            self.send_pdu(self.current_session.next())
+            self.send_pdu(next(self.current_session))
             reactor.callLater(self.send_delay / 1000, self.send_next_pdu)
         except StopIteration:
             # We have sent all the PDUs of this session. Tear down
             # connection. It will trigger a reconnection in the factory.
-            print "%s:%s:End of session, initiating disconnect." % (calendar.timegm(time.gmtime()), self.session_id)
+            print("{}:{}:End of session, initiating disconnect.".format(calendar.timegm(time.gmtime()), self.session_id))
             self.transport.loseConnection()
 
     def send_pdu(self, pdutype):
@@ -78,15 +79,17 @@ class MQTTFuzzProtocol(Protocol):
         try:
             # 1 in 10, send a fuzz case, otherwise a valid case
             if random.randint(1, 10) < self.fuzz_ratio:
-                print "%s:%s:Sending fuzzed %s" % (calendar.timegm(time.gmtime()), self.session_id, pdutype)
+                print("{}:{}:Sending fuzzed {}".format(calendar.timegm(time.gmtime()), self.session_id, pdutype))
                 data = self.fuzzdata.get_next_fuzzcase(os.path.join(self.validcases_path, pdutype))
             else:
-                print "%s:%s:Sending valid %s" % (calendar.timegm(time.gmtime()), self.session_id, pdutype)
+                print("{}:{}:Sending valid {}".format(calendar.timegm(time.gmtime()), self.session_id, pdutype))
                 data = self.fuzzdata.get_valid_case(os.path.join(self.validcases_path, pdutype))
-            print "%s:%s:Fuzzer -> Server: %s" % (calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data).rstrip())
+            if type(data) is str:
+                data = bytes(data, 'utf-8')
+            print("{}:{}:Fuzzer -> Server: {}".format(calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data).rstrip()))
             self.transport.write(data)
         except (IOError, OSError) as err:
-            print "Could not run the fuzzer. Check -validcases and -radamsa options. The error was: %s" % err
+            print("Could not run the fuzzer. Check -validcases and -radamsa options. The error was: {}".format(err))
             reactor.stop()
 
 class MQTTClientFactory(ClientFactory):
@@ -121,7 +124,7 @@ class MQTTClientFactory(ClientFactory):
         protocol_instance = ClientFactory.buildProtocol(self, address)
 
         # Tell the fuzzer instance which type of session it should run
-        protocol_instance.current_session = iter(self.session.next())
+        protocol_instance.current_session = itertools.cycle(next(self.session))
         protocol_instance.fuzzdata = self.fuzzdata
         protocol_instance.session_id = str(uuid.uuid4())
         protocol_instance.fuzz_ratio = self.fuzz_ratio
@@ -133,16 +136,19 @@ class MQTTClientFactory(ClientFactory):
         # Callback: The server under test has died
         from twisted.internet import reactor
 
-        print "%s:Failed to connect to MQTT server: %s" % (calendar.timegm(time.gmtime()), reason)
-        reactor.stop()
+        print("{}:Failed to connect to MQTT server: {}".format(calendar.timegm(time.gmtime()), reason))
+        try:
+            reactor.stop()
+        except ReactorNotRunning:
+            pass
 
     def clientConnectionLost(self, connector, reason):
         # Callback: The server under test closed connection or we decided to
         # tear down the connection at the end of a session. We'll
         # reconnect (which starts another session in the protocol
         # instance)
-        print "%s:Connection to MQTT server lost: %s" % (calendar.timegm(time.gmtime()), reason)
-        print "%s:Reconnecting" % calendar.timegm(time.gmtime())
+        print("{}:Connection to MQTT server lost: {}".format(calendar.timegm(time.gmtime()), reason))
+        print("{}:Reconnecting".format(calendar.timegm(time.gmtime())))
         connector.connect()
 
 def run_tests(host, port, ratio, delay, radamsa, validcases):  # pylint: disable=R0913
@@ -152,10 +158,10 @@ def run_tests(host, port, ratio, delay, radamsa, validcases):  # pylint: disable
     factory = MQTTClientFactory(ratio, delay, radamsa, validcases)
     hostname = host
     port = int(port)
-    print "%s:Starting fuzz run to %s:%s" % (calendar.timegm(time.gmtime()), hostname, port)
+    print("{}:Starting fuzz run to {}:{}".format(calendar.timegm(time.gmtime()), hostname, port))
     reactor.connectTCP(hostname, port, factory)
     reactor.run()
-    print "%s:Stopped fuzz run to %s:%s" % (calendar.timegm(time.gmtime()), hostname, port)
+    print("{}:Stopped fuzz run to {}:{}".format(calendar.timegm(time.gmtime()), hostname, port))
 
 # The following is the entry point from command line
 if __name__ == '__main__':
