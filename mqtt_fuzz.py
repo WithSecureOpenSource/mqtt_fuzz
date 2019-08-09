@@ -78,7 +78,7 @@ class MQTTFuzzProtocol(Protocol):
 
         try:
             # 1 in 10, send a fuzz case, otherwise a valid case
-            if random.randint(1, 10) < self.fuzz_ratio:
+            if not pdutype in self.dont_fuzz and random.randint(1, 10) < self.fuzz_ratio:
                 print("{}:{}:Sending fuzzed {}".format(calendar.timegm(time.gmtime()), self.session_id, pdutype))
                 data = self.fuzzdata.get_next_fuzzcase(os.path.join(self.validcases_path, pdutype))
             else:
@@ -109,7 +109,7 @@ class MQTTClientFactory(ClientFactory):
         ['connect', 'subscribe', 'publish', 'publish-ack', 'publish-release', 'publish-complete', 'publish-received', 'publish-complete', 'disconnect'],
         ['connect', 'publish', 'publish-release', 'subscribe', 'publish-received', 'publish-ack', 'disconnect']]
 
-    def __init__(self, fuzz_ratio, send_delay, radamsa_path, validcases_path):
+    def __init__(self, fuzz_ratio, send_delay, radamsa_path, validcases_path, valid_connect):
         # We cycle through the sessions again and again
         self.session = itertools.cycle(iter(self.session_structures))
 
@@ -118,10 +118,15 @@ class MQTTClientFactory(ClientFactory):
         self.fuzz_ratio = fuzz_ratio
         self.send_delay = send_delay
         self.validcases_path = validcases_path
+        self.valid_connect = valid_connect
 
     def buildProtocol(self, address):
         # Create the fuzzer instance
         protocol_instance = ClientFactory.buildProtocol(self, address)
+        if self.valid_connect:
+            protocol_instance.dont_fuzz = ['connect']
+        else:
+            protocol_instance.dont_fuzz = []
 
         # Tell the fuzzer instance which type of session it should run
         protocol_instance.current_session = itertools.cycle(next(self.session))
@@ -151,11 +156,11 @@ class MQTTClientFactory(ClientFactory):
         print("{}:Reconnecting".format(calendar.timegm(time.gmtime())))
         connector.connect()
 
-def run_tests(host, port, ratio, delay, radamsa, validcases):  # pylint: disable=R0913
+def run_tests(host, port, ratio, delay, radamsa, validcases, valid_connect):  # pylint: disable=R0913
     '''Main function to run'''
     from twisted.internet import reactor
 
-    factory = MQTTClientFactory(ratio, delay, radamsa, validcases)
+    factory = MQTTClientFactory(ratio, delay, radamsa, validcases, valid_connect)
     hostname = host
     port = int(port)
     print("{}:Starting fuzz run to {}:{}".format(calendar.timegm(time.gmtime()), hostname, port))
@@ -186,5 +191,8 @@ if __name__ == '__main__':
     parser.add_argument('-fuzzer', metavar='fuzzer_path', type=str,
                         default='radamsa', required=False,
                         help='Path and name of the Radamsa binary, default "radamsa"')
+    parser.add_argument('--valid-connect', action='store_true',
+                        required=False,
+                        help='Don\'t fuzz connect packets')
     args = parser.parse_args()
-    run_tests(args.host, args.port, args.ratio, args.delay, args.fuzzer, args.validcases)
+    run_tests(args.host, args.port, args.ratio, args.delay, args.fuzzer, args.validcases, args.valid_connect)
