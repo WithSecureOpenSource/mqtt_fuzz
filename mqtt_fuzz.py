@@ -85,7 +85,10 @@ class MQTTFuzzProtocol(Protocol):
                 print("{}:{}:Sending valid {}".format(calendar.timegm(time.gmtime()), self.session_id, pdutype))
                 data = self.fuzzdata.get_valid_case(os.path.join(self.validcases_path, pdutype))
             if type(data) is str:
-                data = bytes(data, 'utf-8')
+                try:
+                    data = bytes(data, 'utf-8')
+                except TypeError:
+                    data = bytes(data)  # for python2
             print("{}:{}:Fuzzer -> Server: {}".format(calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data).rstrip()))
             self.transport.write(data)
         except (IOError, OSError) as err:
