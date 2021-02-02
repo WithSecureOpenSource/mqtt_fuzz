@@ -38,7 +38,7 @@ class FuzzPool:
         """
 
         try:
-            return self.fuzzcase_iters[path].next()
+            return next(self.fuzzcase_iters[path])
         except (StopIteration, KeyError):
             # We did not have any fuzz cases at hand (yet or any more)
             # so we'll run Radamsa and fill the buffers.
@@ -46,24 +46,24 @@ class FuzzPool:
                 raise IOError('Valid-case path "%s" is not a directory' % path)
             self.fuzzcases[path] = self.run_fuzzer(path, 500, self.radamsa_path)
             self.fuzzcase_iters[path] = iter(self.fuzzcases[path])
-            return self.fuzzcase_iters[path].next()
+            return next(self.fuzzcase_iters[path])
 
     def get_valid_case(self, path):
         """Returns one valid case from a valid case directory
         """
 
         try:
-            return self.valid_cases_iter[path].next()
+            return next(self.valid_cases_iter[path])
         except (StopIteration, KeyError):
             # We haven't yet read in valid cases
             if os.path.isdir(path) is False:
                 raise IOError('Valid-case path "%s" is not a directory' % path)
             self.valid_cases[path] = []
             for filename in os.listdir(path):
-                filehandle = open(os.path.join(path, filename), "r")
+                filehandle = open(os.path.join(path, filename), "rb")
                 self.valid_cases[path].append(filehandle.read())
             self.valid_cases_iter[path] = itertools.cycle(iter(self.valid_cases[path]))
-            return self.valid_cases_iter[path].next()
+            return next(self.valid_cases_iter[path])
 
     def run_fuzzer(self, valid_case_directory, no_of_fuzzcases, radamsacmd):
         """Run Radamsa on a set of valid values
@@ -80,7 +80,7 @@ class FuzzPool:
         if no_of_fuzzcases < 1:
             no_of_fuzzcases = 1
 
-        print "%s:Generating %s new fuzz cases for path '%s'" % (time.asctime(time.gmtime()), no_of_fuzzcases, valid_case_directory)
+        print("{}:Generating {} new fuzz cases for path '{}'".format(time.asctime(time.gmtime()), no_of_fuzzcases, valid_case_directory))
 
         # Run Radamsa
         try:
@@ -93,7 +93,7 @@ class FuzzPool:
         # Read the fuzz cases from the output directory and return as list
         fuzzlist = []
         for filename in os.listdir(fuzz_case_directory):
-            filehandle = open(os.path.join(fuzz_case_directory, filename), "r")
+            filehandle = open(os.path.join(fuzz_case_directory, filename), "rb")
             fuzzlist.append(filehandle.read())
         shutil.rmtree(fuzz_case_directory)
         return fuzzlist
