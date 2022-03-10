@@ -42,13 +42,13 @@ class MQTTFuzzProtocol(Protocol):
         :param data: Data received from remote peer
 
         """
-        print("%s:%s:Server -> Fuzzer: %s".format(calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data)))
+        print("{}:{}:Server -> Fuzzer: {}".format(calendar.timegm(time.gmtime()), self.session_id, binascii.b2a_base64(data)))
 
     def connectionMade(self):
         """Callback: We have connected to the MQTT server, so start banging away.
 
         """
-        print("%s:%s:Connected to server".format(calendar.timegm(time.gmtime()), self.session_id))
+        print("{}:{}:Connected to server".format(calendar.timegm(time.gmtime()), self.session_id))
         self.send_next_pdu()
 
     def send_next_pdu(self):
@@ -64,7 +64,7 @@ class MQTTFuzzProtocol(Protocol):
         except StopIteration:
             # We have sent all the PDUs of this session. Tear down
             # connection. It will trigger a reconnection in the factory.
-            print("%s:%s:End of session, initiating disconnect.".format(calendar.timegm(time.gmtime()), self.session_id))
+            print("{}:{}:End of session, initiating disconnect.".format(calendar.timegm(time.gmtime()), self.session_id))
             self.transport.loseConnection()
 
     def send_pdu(self, pdu):
@@ -74,7 +74,7 @@ class MQTTFuzzProtocol(Protocol):
         """
         # Send either a valid case or a fuzz case
         # 1 in 10, send a fuzz case, otherwise a valid case
-        print("%s:%s:Fuzzer -> Server: %s".format(calendar.timegm(time.gmtime()), self.session_id, pdu))
+        print("{}:{}:Fuzzer -> Server: {}".format(calendar.timegm(time.gmtime()), self.session_id, pdu))
         self.transport.write(binascii.a2b_base64(pdu))
 
 class MQTTClientFactory(ClientFactory):
@@ -92,7 +92,7 @@ class MQTTClientFactory(ClientFactory):
         # The server under test has died
         from twisted.internet import reactor
 
-        print("%s:Failed to connect to MQTT server: %s".format(calendar.timegm(time.gmtime()), reason))
+        print("{}:Failed to connect to MQTT server: {}".format(calendar.timegm(time.gmtime()), reason))
         reactor.stop()
 
     def clientConnectionLost(self, connector, reason):
@@ -101,7 +101,7 @@ class MQTTClientFactory(ClientFactory):
         # reconnect (which starts another session in the protocol instance)
         from twisted.internet import reactor
 
-        print("%s:Connection to MQTT server lost: %s".format(calendar.timegm(time.gmtime()), reason))
+        print("{}:Connection to MQTT server lost: {}".format(calendar.timegm(time.gmtime()), reason))
         reactor.stop()
 
 def run_tests():
@@ -113,10 +113,10 @@ def run_tests():
     factory = MQTTClientFactory()
     hostname = 'localhost'
     port = 1883
-    print("%s:Starting repro run to %s:%s".format(calendar.timegm(time.gmtime()), hostname, port))
+    print("{}:Starting repro run to {}:{}".format(calendar.timegm(time.gmtime()), hostname, port))
     reactor.connectTCP(hostname, port, factory)
     reactor.run()
-    print("%s:Stopped repro run to %s:%s".format(calendar.timegm(time.gmtime()), hostname, port))
+    print("{}:Stopped repro run to {}:{}".format(calendar.timegm(time.gmtime()), hostname, port))
 
 if __name__ == '__main__':
     run_tests()
